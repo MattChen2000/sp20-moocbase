@@ -363,8 +363,36 @@ class LeafNode extends BPlusNode {
     public static LeafNode fromBytes(BPlusTreeMetadata metadata, BufferManager bufferManager,
                                      LockContext treeContext, long pageNum) {
         // TODO(proj2): implement
+        Page page = bufferManager.fetchPage(treeContext, pageNum, false);
+        Buffer buf = page.getBuffer();
 
-        return null;
+        // Check part a
+        assert (buf.get() == (byte) 1);
+
+        List<DataBox> keys = new ArrayList<>();
+        List<RecordId> rids = new ArrayList<>();
+
+        // Part b
+        long rightSiblingPageId = buf.getLong();
+        Optional<Long> rightSibling;
+        // If the node is already the rightmost node on its level
+        // set rightSibling to -1
+        // Otherwise, wrap the pageId with Optional<Long>
+        if (rightSiblingPageId == (long) -1) {
+            rightSibling = Optional.empty();
+        } else {
+            rightSibling = Optional.of(rightSiblingPageId);
+        }
+
+        // Part c
+        int n = buf.getInt();
+
+        // Part d
+        for (int i = 0; i < n; i++) {
+            keys.add(DataBox.fromBytes(buf, metadata.getKeySchema()));
+            rids.add(RecordId.fromBytes(buf));
+        }
+        return new LeafNode(metadata, bufferManager, page, keys, rids, rightSibling, treeContext);
     }
 
     // Builtins //////////////////////////////////////////////////////////////////
