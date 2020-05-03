@@ -12,8 +12,6 @@ import edu.berkeley.cs186.database.memory.BufferManager;
 import edu.berkeley.cs186.database.memory.Page;
 import edu.berkeley.cs186.database.table.RecordId;
 
-import javax.swing.text.html.Option;
-
 /**
  * A leaf of a B+ tree. Every leaf in a B+ tree of order d stores between d and
  * 2d (key, record id) pairs and a pointer to its right sibling (i.e. the page
@@ -139,7 +137,7 @@ class LeafNode extends BPlusNode {
     }
 
     // Core API //////////////////////////////////////////////////////////////////
-    // See BPlusNode.get.
+    // See BPlusNode.get
     @Override
     public LeafNode get(DataBox key) {
         // Since it's already a leaf node, it has to return itself
@@ -156,18 +154,12 @@ class LeafNode extends BPlusNode {
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        /* IMPORTANT: This method assumes the leaf node has the capacity
-                      to add the new (key, rid) pair
-         */
-        for (int i = 0; i < keys.size(); i++) {
-            if (key.compareTo(keys.get(i)) < 0) {
-                keys.add(i, key);
-                rids.add(i, rid);
-                return Optional.empty();
-            }
+        int order = metadata.getOrder();
+        sortedInsert(key, rid);
+        if (this.keys.size() > 2*order) {
+            LeafNode newNode = split();
+            return Optional.of(new Pair<>(getLeftMostKey(), newNode.getPage().getPageNum()));
         }
-        keys.add(key);
-        rids.add(rid);
         return Optional.empty();
     }
 
@@ -254,6 +246,45 @@ class LeafNode extends BPlusNode {
 
     public boolean isFull() {
         return keys.size() == metadata.getOrder();
+    }
+
+    private void sortedInsert(DataBox key, RecordId rid) {
+        /*
+            Insert key and rid into the node while keeping the keys sorted
+         */
+        for (int i = 0; i < keys.size(); i++) {
+            if (key.compareTo(keys.get(i)) < 0) {
+                keys.add(i, key);
+                rids.add(i, rid);
+                return;
+            }
+        }
+        keys.add(key);
+        rids.add(rid);
+    }
+
+    LeafNode split() {
+        int order = metadata.getOrder();
+        List<DataBox> keysToBeMigrated = new ArrayList<>();
+        List<RecordId> ridsToBeMigrated = new ArrayList<>();
+        Optional<Long> oldRightSibling = this.rightSibling;
+
+        for (int i = order; i < this.keys.size(); i++) {
+            DataBox currKey = this.keys.remove(i);
+            RecordId currRid = this.rids.remove(i);
+            keysToBeMigrated.add(currKey);
+            ridsToBeMigrated.add(currRid);
+        }
+        LeafNode newNode = new LeafNode(metadata, bufferManager,
+                                        keysToBeMigrated, ridsToBeMigrated,
+                                        oldRightSibling, treeContext);
+        Page newPage = newNode.getPage();
+        this.rightSibling = Optional.of(newPage.getPageNum());
+        return newNode;
+    }
+
+    public DataBox getLeftMostKey() {
+        return this.keys.get(0);
     }
 
     // Just for testing.
