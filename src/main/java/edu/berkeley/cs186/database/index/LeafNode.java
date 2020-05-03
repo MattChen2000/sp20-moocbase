@@ -12,6 +12,8 @@ import edu.berkeley.cs186.database.memory.BufferManager;
 import edu.berkeley.cs186.database.memory.Page;
 import edu.berkeley.cs186.database.table.RecordId;
 
+import javax.swing.text.html.Option;
+
 /**
  * A leaf of a B+ tree. Every leaf in a B+ tree of order d stores between d and
  * 2d (key, record id) pairs and a pointer to its right sibling (i.e. the page
@@ -140,24 +142,32 @@ class LeafNode extends BPlusNode {
     // See BPlusNode.get.
     @Override
     public LeafNode get(DataBox key) {
-        // TODO(proj2): implement
-
-        return null;
+        // Since it's already a leaf node, it has to return itself
+        return this;
     }
 
     // See BPlusNode.getLeftmostLeaf.
     @Override
     public LeafNode getLeftmostLeaf() {
-        // TODO(proj2): implement
-
-        return null;
+        // Since it's already a leaf node, it has to return itself
+        return this;
     }
 
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
-
+        /* IMPORTANT: This method assumes the leaf node has the capacity
+                      to add the new (key, rid) pair
+         */
+        for (int i = 0; i < keys.size(); i++) {
+            if (key.compareTo(keys.get(i)) < 0) {
+                keys.add(i, key);
+                rids.add(i, rid);
+                return Optional.empty();
+            }
+        }
+        keys.add(key);
+        rids.add(rid);
         return Optional.empty();
     }
 
@@ -233,6 +243,13 @@ class LeafNode extends BPlusNode {
         } finally {
             page.unpin();
         }
+    }
+
+    public Optional<RecordId> getRidOrDefault(DataBox key) {
+        if (keys.contains(key)) {
+            return Optional.of(rids.get(keys.indexOf(key)));
+        }
+        return Optional.empty();
     }
 
     // Just for testing.
