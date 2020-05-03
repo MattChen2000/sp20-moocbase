@@ -86,7 +86,6 @@ class InnerNode extends BPlusNode {
            set the next branch to the left branch of the key and break the loop
          */
         long childPageNum = children.get(children.size() - 1);
-        BPlusNode child;
         for (int i = 0; i < keys.size(); i++) {
             if (key.compareTo(keys.get(i)) < 0) {
                 childPageNum = children.get(i);
@@ -94,47 +93,34 @@ class InnerNode extends BPlusNode {
             }
         }
         // Retrieve the appropriate child node
-        child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
-        // Retrieve the information in the buffer on that specific page
-        // and look up the byte representing the type of node
-        Page p = bufferManager.fetchPage(treeContext, childPageNum, false);
-        try {
-            Buffer buf = p.getBuffer();
-            byte b = buf.get();
-            if (b == 1) {
-                return (LeafNode) child;
-            } else if (b == 0) {
-                return child.get(key);
-            } else {
-                return null;
-            }
-        } finally {
-            p.unpin();
-        }
+        return LeafNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
+
+//        -----------------------------------------------------------------------------
+//         Retrieve the information in the buffer on that specific page
+//         and look up the byte representing the type of node
+//        Page p = bufferManager.fetchPage(treeContext, childPageNum, false);
+//        try {
+//            Buffer buf = p.getBuffer();
+//            byte b = buf.get();
+//            if (b == 1) {
+//                return (LeafNode) child;
+//            } else if (b == 0) {
+//                return child.get(key);
+//            } else {
+//                return null;
+//            }
+//        } finally {
+//            p.unpin();
+//        }
     }
 
     // See BPlusNode.getLeftmostLeaf.
     @Override
     public LeafNode getLeftmostLeaf() {
         assert(children.size() > 0);
-        /* Dig into the leftmost branch as deeply as possible
-         */
+        // Choose the first (leftmost) branch
         long childPageNum = children.get(0);
-        BPlusNode child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
-        Page p = bufferManager.fetchPage(treeContext, childPageNum, false);
-        try {
-            Buffer buf = p.getBuffer();
-            byte b = buf.get();
-            if (b == 1) {
-                return (LeafNode) child;
-            } else if (b == 0) {
-                return child.getLeftmostLeaf();
-            } else {
-                return null;
-            }
-        } finally {
-            p.unpin();
-        }
+        return LeafNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
     }
 
     // See BPlusNode.put.
