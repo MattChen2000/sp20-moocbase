@@ -86,6 +86,7 @@ class InnerNode extends BPlusNode {
            set the next branch to the left branch of the key and break the loop
          */
         long childPageNum = children.get(children.size() - 1);
+        BPlusNode child;
         for (int i = 0; i < keys.size(); i++) {
             if (key.compareTo(keys.get(i)) < 0) {
                 childPageNum = children.get(i);
@@ -93,34 +94,29 @@ class InnerNode extends BPlusNode {
             }
         }
         // Retrieve the appropriate child node
-        return LeafNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
-
-//        -----------------------------------------------------------------------------
-//         Retrieve the information in the buffer on that specific page
-//         and look up the byte representing the type of node
-//        Page p = bufferManager.fetchPage(treeContext, childPageNum, false);
-//        try {
-//            Buffer buf = p.getBuffer();
-//            byte b = buf.get();
-//            if (b == 1) {
-//                return (LeafNode) child;
-//            } else if (b == 0) {
-//                return child.get(key);
-//            } else {
-//                return null;
-//            }
-//        } finally {
-//            p.unpin();
-//        }
+        child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
+        // If the child is a leaf node, return the child
+        // Otherwise, call get() recursively on child
+        if (child instanceof LeafNode) {
+            return (LeafNode) child;
+        } else {
+            return child.get(key);
+        }
     }
 
     // See BPlusNode.getLeftmostLeaf.
     @Override
     public LeafNode getLeftmostLeaf() {
         assert(children.size() > 0);
-        // Choose the first (leftmost) branch
+        /* Dig into the leftmost branch as deeply as possible
+         */
         long childPageNum = children.get(0);
-        return LeafNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
+        BPlusNode child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
+        if (child instanceof LeafNode) {
+            return (LeafNode) child;
+        } else {
+            return child.getLeftmostLeaf();
+        }
     }
 
     // See BPlusNode.put.
@@ -128,9 +124,7 @@ class InnerNode extends BPlusNode {
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
         LeafNode targetLeaf = get(key);
-        if (targetLeaf.isFull()) {
 
-        }
         return Optional.empty();
     }
 
