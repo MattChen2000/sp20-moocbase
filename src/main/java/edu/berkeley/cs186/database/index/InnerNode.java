@@ -12,6 +12,8 @@ import edu.berkeley.cs186.database.memory.BufferManager;
 import edu.berkeley.cs186.database.memory.Page;
 import edu.berkeley.cs186.database.table.RecordId;
 
+import javax.xml.crypto.Data;
+
 /**
  * A inner node of a B+ tree. Every inner node in a B+ tree of order d stores
  * between d and 2d keys. An inner node with n keys stores n + 1 "pointers" to
@@ -139,7 +141,10 @@ class InnerNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
+        LeafNode targetLeaf = get(key);
+        if (targetLeaf.isFull()) {
 
+        }
         return Optional.empty();
     }
 
@@ -184,6 +189,11 @@ class InnerNode extends BPlusNode {
         } finally {
             page.unpin();
         }
+    }
+
+    private LeafNode split(InnerNode parent, DataBox key, RecordId rid) {
+        // Todo: Implement
+        return null;
     }
 
     // Just for testing.

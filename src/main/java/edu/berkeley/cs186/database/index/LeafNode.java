@@ -252,6 +252,10 @@ class LeafNode extends BPlusNode {
         return Optional.empty();
     }
 
+    public boolean isFull() {
+        return keys.size() == metadata.getOrder();
+    }
+
     // Just for testing.
     List<DataBox> getKeys() {
         return keys;
