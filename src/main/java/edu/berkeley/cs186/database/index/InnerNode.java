@@ -78,18 +78,61 @@ class InnerNode extends BPlusNode {
     // See BPlusNode.get.
     @Override
     public LeafNode get(DataBox key) {
-        // TODO(proj2): implement
-
-        return null;
+        /* Initialize the next branch to be the rightmost branch
+           then check all keys from left to right sequentially
+           At any point, if it's smaller than a particular key
+           set the next branch to the left branch of the key and break the loop
+         */
+        long childPageNum = children.get(children.size() - 1);
+        BPlusNode child;
+        for (int i = 0; i < keys.size(); i++) {
+            if (key.compareTo(keys.get(i)) < 0) {
+                childPageNum = children.get(i);
+                break;
+            }
+        }
+        // Retrieve the appropriate child node
+        child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
+        // Retrieve the information in the buffer on that specific page
+        // and look up the byte representing the type of node
+        Page p = bufferManager.fetchPage(treeContext, childPageNum, false);
+        try {
+            Buffer buf = p.getBuffer();
+            byte b = buf.get();
+            if (b == 1) {
+                return (LeafNode) child;
+            } else if (b == 0) {
+                return child.get(key);
+            } else {
+                return null;
+            }
+        } finally {
+            p.unpin();
+        }
     }
 
     // See BPlusNode.getLeftmostLeaf.
     @Override
     public LeafNode getLeftmostLeaf() {
         assert(children.size() > 0);
-        // TODO(proj2): implement
-
-        return null;
+        /* Dig into the leftmost branch as deeply as possible
+         */
+        long childPageNum = children.get(0);
+        BPlusNode child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
+        Page p = bufferManager.fetchPage(treeContext, childPageNum, false);
+        try {
+            Buffer buf = p.getBuffer();
+            byte b = buf.get();
+            if (b == 1) {
+                return (LeafNode) child;
+            } else if (b == 0) {
+                return child.getLeftmostLeaf();
+            } else {
+                return null;
+            }
+        } finally {
+            p.unpin();
+        }
     }
 
     // See BPlusNode.put.
