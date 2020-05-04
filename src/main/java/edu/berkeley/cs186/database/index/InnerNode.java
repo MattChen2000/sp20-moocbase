@@ -3,6 +3,7 @@ package edu.berkeley.cs186.database.index;
 import java.nio.ByteBuffer;
 import java.util.*;
 
+import edu.berkeley.cs186.database.Database;
 import edu.berkeley.cs186.database.common.Buffer;
 import edu.berkeley.cs186.database.common.Pair;
 import edu.berkeley.cs186.database.concurrency.LockContext;
@@ -85,16 +86,18 @@ class InnerNode extends BPlusNode {
            At any point, if it's smaller than a particular key
            set the next branch to the left branch of the key and break the loop
          */
-        long childPageNum = children.get(children.size() - 1);
-        BPlusNode child;
-        for (int i = 0; i < keys.size(); i++) {
-            if (key.compareTo(keys.get(i)) < 0) {
-                childPageNum = children.get(i);
-                break;
-            }
-        }
+//        long childPageNum = children.get(children.size() - 1);
+//        BPlusNode child;
+//        for (int i = 0; i < keys.size(); i++) {
+//            if (key.compareTo(keys.get(i)) < 0) {
+//                childPageNum = children.get(i);
+//                break;
+//            }
+//        }
+        int targetIndex = numLessThanEqual(key, keys);
+        long childPageNum = children.get(targetIndex);
         // Retrieve the appropriate child node
-        child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
+        BPlusNode child = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
         // If the child is a leaf node, return the child
         // Otherwise, call get() recursively on child
         if (child instanceof LeafNode) {
@@ -121,11 +124,21 @@ class InnerNode extends BPlusNode {
 
     // See BPlusNode.put.
     @Override
-    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
+    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid)
+            throws BPlusTreeException {
         // TODO(proj2): implement
-        LeafNode targetLeaf = get(key);
-
-        return Optional.empty();
+        Pair<LeafNode, Stack<InnerNode>> pair = stackTracedGet(key);
+        LeafNode targetLeaf = pair.getFirst();
+        Stack<InnerNode> path = pair.getSecond();
+        Optional<Pair<DataBox, Long>> splitOpt = targetLeaf.put(key, rid);
+        while (splitOpt.isPresent() && !path.isEmpty()) {
+            Pair<DataBox, Long> splitPair = splitOpt.get();
+            DataBox splitKey = splitPair.getFirst();
+            Long newNodePageNum = splitPair.getSecond();
+            InnerNode parent = path.pop();
+            splitOpt = parent.insert(splitKey, newNodePageNum);
+        }
+        return splitOpt;
     }
 
     // See BPlusNode.bulkLoad.
@@ -171,9 +184,66 @@ class InnerNode extends BPlusNode {
         }
     }
 
-    private LeafNode split(InnerNode parent, DataBox key, RecordId rid) {
-        // Todo: Implement
-        return null;
+    Pair<DataBox, Long> split() {
+        int order = metadata.getOrder();
+        List<DataBox> keysToBeMigrated = new ArrayList<>();
+        List<Long> childrenToBeMigrated = new ArrayList<>();
+        DataBox splitKey = keys.remove(order);
+        Long splitKeyRightChild = children.remove(order+1);
+        childrenToBeMigrated.add(splitKeyRightChild);
+
+        int len = this.keys.size();
+        for (int i = order; i < len; i++) {
+            DataBox currKey = keys.remove(order);
+            Long currChild = children.remove(order+1);
+            keysToBeMigrated.add(currKey);
+            childrenToBeMigrated.add(currChild);
+        }
+        InnerNode newNode = new InnerNode(metadata, bufferManager,
+                keysToBeMigrated, childrenToBeMigrated, treeContext);
+        sync();
+        return new Pair<>(splitKey, newNode.getPage().getPageNum());
+    }
+
+    private void sortedInsert(DataBox key, Long child) {
+        int insertionPos = numLessThanEqual(key, keys);
+        keys.add(insertionPos, key);
+        children.add(insertionPos+1, child);
+    }
+
+    public Optional<Pair<DataBox, Long>> insert(DataBox key, Long child) {
+        sortedInsert(key, child);
+        if (isFull()) {
+//            Pair<InnerNode, DataBox> splitPair = split();
+//            InnerNode newNode = splitPair.getFirst();
+//            DataBox splitKey = newNode.keys.remove(0);
+//            Pair<DataBox, Long> pair = new Pair<>(splitKey, newNode.getPage().getPageNum());
+            return Optional.of(split());
+        }
+        sync();
+        return Optional.empty();
+    }
+
+    public Pair<LeafNode, Stack<InnerNode>> stackTracedGet(DataBox key) {
+        BPlusNode currNode = this;
+        Stack<InnerNode> path = new Stack<>();
+        while (currNode instanceof InnerNode) {
+            path.push((InnerNode) currNode);
+            int keyIndex = numLessThanEqual(key, ((InnerNode) currNode).keys);
+            long childPageNum = ((InnerNode) currNode).children.get(keyIndex);
+            currNode = BPlusNode.fromBytes(metadata, bufferManager, treeContext, childPageNum);
+        }
+        return new Pair<>((LeafNode) currNode, path);
+    }
+
+    public Pair<DataBox, Long> pushUpSplitKey() {
+        DataBox splitKey = keys.remove(0);
+        Long child = children.remove(0);
+        return new Pair<>(splitKey, child);
+    }
+
+    public boolean isFull() {
+        return keys.size() > metadata.getOrder() * 2;
     }
 
     // Just for testing.

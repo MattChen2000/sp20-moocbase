@@ -419,9 +419,13 @@ public class TestBPlusTree {
 
                 // Insert all the keys.
                 BPlusTree tree = getBPlusTree(Type.intType(), d);
+                DataBox currKey;
                 for (int i = 0; i < keys.size(); ++i) {
+                    currKey = keys.get(i);
                     tree.put(keys.get(i), rids.get(i));
+//                    tree.toDotPDFFile("tree.pdf");
                 }
+
 
                 // Test get.
                 for (int i = 0; i < keys.size(); ++i) {

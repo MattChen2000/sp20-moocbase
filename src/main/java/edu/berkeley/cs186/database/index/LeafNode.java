@@ -153,13 +153,15 @@ class LeafNode extends BPlusNode {
 
     // See BPlusNode.put.
     @Override
-    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        int order = metadata.getOrder();
+    public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid)
+            throws BPlusTreeException {
         sortedInsert(key, rid);
-        if (this.keys.size() > 2*order) {
+        if (isFull()) {
             LeafNode newNode = split();
-            return Optional.of(new Pair<>(getLeftMostKey(), newNode.getPage().getPageNum()));
+            sync();
+            return Optional.of(new Pair<>(newNode.getLeftMostKey(), newNode.getPage().getPageNum()));
         }
+        sync();
         return Optional.empty();
     }
 
@@ -245,10 +247,10 @@ class LeafNode extends BPlusNode {
     }
 
     public boolean isFull() {
-        return keys.size() == metadata.getOrder();
+        return keys.size() > metadata.getOrder()*2;
     }
 
-    private void sortedInsert(DataBox key, RecordId rid) {
+    private void sortedInsert(DataBox key, RecordId rid) throws BPlusTreeException {
         /*
             Insert key and rid into the node while keeping the keys sorted
          */
@@ -258,26 +260,32 @@ class LeafNode extends BPlusNode {
                 rids.add(i, rid);
                 return;
             }
+            if (key.compareTo(keys.get(i)) == 0) {
+                String errMsg = String.format("Duplicate put detected: %s", key.toString());
+                throw new BPlusTreeException(errMsg);
+            }
         }
         keys.add(key);
         rids.add(rid);
     }
 
-    LeafNode split() {
+    public LeafNode split() {
         int order = metadata.getOrder();
         List<DataBox> keysToBeMigrated = new ArrayList<>();
         List<RecordId> ridsToBeMigrated = new ArrayList<>();
         Optional<Long> oldRightSibling = this.rightSibling;
 
-        for (int i = order; i < this.keys.size(); i++) {
-            DataBox currKey = this.keys.remove(i);
-            RecordId currRid = this.rids.remove(i);
+        int len = this.keys.size();
+        for (int i = order; i < len; i++) {
+            DataBox currKey = this.keys.remove(order);
+            RecordId currRid = this.rids.remove(order);
             keysToBeMigrated.add(currKey);
             ridsToBeMigrated.add(currRid);
         }
         LeafNode newNode = new LeafNode(metadata, bufferManager,
                                         keysToBeMigrated, ridsToBeMigrated,
                                         oldRightSibling, treeContext);
+        newNode.rightSibling = oldRightSibling;
         Page newPage = newNode.getPage();
         this.rightSibling = Optional.of(newPage.getPageNum());
         return newNode;

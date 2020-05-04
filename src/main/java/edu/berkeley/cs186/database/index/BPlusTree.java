@@ -1,5 +1,6 @@
 package edu.berkeley.cs186.database.index;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.FileWriter;
 import java.io.UncheckedIOException;
@@ -15,6 +16,8 @@ import edu.berkeley.cs186.database.databox.Type;
 import edu.berkeley.cs186.database.io.DiskSpaceManager;
 import edu.berkeley.cs186.database.memory.BufferManager;
 import edu.berkeley.cs186.database.table.RecordId;
+
+import javax.swing.text.html.Option;
 
 /**
  * A persistent B+ tree.
@@ -138,7 +141,7 @@ public class BPlusTree {
         typecheck(key);
         // TODO(proj2): implement
         LeafNode possibleNode = this.root.get(key);
-        return possibleNode.getRidOrDefault(key);
+        return possibleNode.getKey(key);
         // TODO(proj4_part3): B+ tree locking
     }
 
@@ -235,9 +238,23 @@ public class BPlusTree {
      *   tree.put(key, rid); // Success :)
      *   tree.put(key, rid); // BPlusTreeException :(
      */
-    public void put(DataBox key, RecordId rid) {
+    public void put(DataBox key, RecordId rid) throws BPlusTreeException {
         typecheck(key);
         // TODO(proj2): implement
+        Optional<Pair<DataBox, Long>> op = this.root.put(key, rid);
+        if (op.isPresent()) {
+            List<DataBox> newRootKeys = new ArrayList<>();
+            List<Long> newRootChildren = new ArrayList<>();
+            DataBox splitKey = op.get().getFirst();
+            Long newNodePageNum = op.get().getSecond();
+            newRootKeys.add(splitKey);
+            // The left branch is the original root
+            newRootChildren.add(this.root.getPage().getPageNum());
+            newRootChildren.add(newNodePageNum);
+            InnerNode newRoot = new InnerNode(metadata, bufferManager,
+                    newRootKeys, newRootChildren, lockContext);
+            updateRoot(newRoot);
+        }
         // TODO(proj4_part3): B+ tree locking
 
         return;
@@ -339,12 +356,12 @@ public class BPlusTree {
         }
 
         // Running command to convert dot file to PDF
-        try {
-            Runtime.getRuntime().exec("dot -T pdf tree.dot -o " + filename);
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new UncheckedIOException(e);
-        }
+//        try {
+//            Runtime.getRuntime().exec("dot -T pdf tree.dot -o " + filename);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//            throw new UncheckedIOException(e);
+//        }
     }
 
     /**
