@@ -193,9 +193,9 @@ public class BPlusTree {
      */
     public Iterator<RecordId> scanAll() {
         // TODO(proj2): Return a BPlusTreeIterator.
+        return new BPlusTreeIterator();
         // TODO(proj4_part3): B+ tree locking
 
-        return Collections.emptyIterator();
     }
 
     /**
@@ -224,9 +224,8 @@ public class BPlusTree {
     public Iterator<RecordId> scanGreaterEqual(DataBox key) {
         typecheck(key);
         // TODO(proj2): Return a BPlusTreeIterator.
+        return new BPlusTreeIterator(key);
         // TODO(proj4_part3): B+ tree locking
-
-        return Collections.emptyIterator();
     }
 
     /**
@@ -402,18 +401,38 @@ public class BPlusTree {
     // Iterator ////////////////////////////////////////////////////////////////
     private class BPlusTreeIterator implements Iterator<RecordId> {
         // TODO(proj2): Add whatever fields and constructors you want here.
+        LeafNode currNode;
+        Iterator<RecordId> currIterator;
+
+        public BPlusTreeIterator() {
+            this.currNode = root.getLeftmostLeaf();
+            this.currIterator = currNode.scanAll();
+        }
+
+        public BPlusTreeIterator(DataBox key) {
+            this.currNode = root.get(key);
+            this.currIterator = currNode.scanGreaterEqual(key);
+        }
 
         @Override
         public boolean hasNext() {
             // TODO(proj2): implement
-
-            return false;
+            return currIterator.hasNext() || currNode.getRightSibling().isPresent();
         }
 
         @Override
         public RecordId next() {
             // TODO(proj2): implement
-
+            // If there's still element left in the current node, return the next element
+            // Otherwise, if the current node has a right sibling, switch to that right sibling
+            // and return its elements
+            if (currIterator.hasNext()) {
+                return currIterator.next();
+            } else if (currNode.getRightSibling().isPresent()) {
+                currNode = currNode.getRightSibling().get();
+                currIterator = currNode.scanAll();
+                return currIterator.next();
+            }
             throw new NoSuchElementException();
         }
     }
