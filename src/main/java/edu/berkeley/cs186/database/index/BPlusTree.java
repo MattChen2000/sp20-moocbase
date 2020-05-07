@@ -139,7 +139,6 @@ public class BPlusTree {
      */
     public Optional<RecordId> get(DataBox key) {
         typecheck(key);
-        // TODO(proj2): implement
         LeafNode possibleNode = this.root.get(key);
         return possibleNode.getKey(key);
         // TODO(proj4_part3): B+ tree locking
@@ -296,7 +295,6 @@ public class BPlusTree {
      */
     public void remove(DataBox key) {
         typecheck(key);
-        // TODO(proj2): implement
         this.root.remove(key);
         // TODO(proj4_part3): B+ tree locking
     }
@@ -399,7 +397,6 @@ public class BPlusTree {
 
     // Iterator ////////////////////////////////////////////////////////////////
     private class BPlusTreeIterator implements Iterator<RecordId> {
-        // TODO(proj2): Add whatever fields and constructors you want here.
         LeafNode currNode;
         Iterator<RecordId> currIterator;
 
@@ -415,13 +412,11 @@ public class BPlusTree {
 
         @Override
         public boolean hasNext() {
-            // TODO(proj2): implement
             return currIterator.hasNext() || currNode.getRightSibling().isPresent();
         }
 
         @Override
         public RecordId next() {
-            // TODO(proj2): implement
             // If there's still element left in the current node, return the next element
             // Otherwise, if the current node has a right sibling, switch to that right sibling
             // and return its elements

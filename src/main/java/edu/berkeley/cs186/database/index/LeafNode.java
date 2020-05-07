@@ -177,7 +177,6 @@ class LeafNode extends BPlusNode {
     // See BPlusNode.remove.
     @Override
     public void remove(DataBox key) {
-        // TODO(proj2): implement
         for (int i = 0; i < keys.size(); i++) {
             if (key.compareTo(keys.get(i)) == 0) {
                 keys.remove(i);
@@ -428,7 +427,6 @@ class LeafNode extends BPlusNode {
      */
     public static LeafNode fromBytes(BPlusTreeMetadata metadata, BufferManager bufferManager,
                                      LockContext treeContext, long pageNum) {
-        // TODO(proj2): implement
         Page page = bufferManager.fetchPage(treeContext, pageNum, false);
         Buffer buf = page.getBuffer();
 

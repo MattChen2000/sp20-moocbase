@@ -126,7 +126,6 @@ class InnerNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid)
             throws BPlusTreeException {
-        // TODO(proj2): implement
         Pair<LeafNode, Stack<InnerNode>> pair = stackTracedGet(key);
         LeafNode targetLeaf = pair.getFirst();
         Stack<InnerNode> path = pair.getSecond();
@@ -153,7 +152,6 @@ class InnerNode extends BPlusNode {
     // See BPlusNode.remove.
     @Override
     public void remove(DataBox key) {
-        // TODO(proj2): implement
         LeafNode targetLeafNode = get(key);
         targetLeafNode.remove(key);
         sync();
