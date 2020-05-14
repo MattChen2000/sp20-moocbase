@@ -157,7 +157,7 @@ class LeafNode extends BPlusNode {
             throws BPlusTreeException {
         sortedInsert(key, rid);
         if (isFull()) {
-            LeafNode newNode = split();
+            LeafNode newNode = split(metadata.getOrder());
             sync();
             return Optional.of(new Pair<>(newNode.getLeftMostKey(), newNode.getPage().getPageNum()));
         }
@@ -169,9 +169,25 @@ class LeafNode extends BPlusNode {
     @Override
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
             float fillFactor) {
-        // TODO(proj2): implement
+        int capacity = (int) Math.ceil(2 * metadata.getOrder() * fillFactor);
+        while (data.hasNext() && keys.size() <= capacity) {
+            Pair<DataBox, RecordId> p = data.next();
+            DataBox key = p.getFirst();
+            RecordId rid = p.getSecond();
+            if (keys.contains(key)) {
+                throw new BPlusTreeException("Cannot insert duplicate key");
+            }
+            sortedInsert(key, rid);
+        }
 
-        return Optional.empty();
+        Optional<Pair<DataBox, Long>> returnVal = Optional.empty();
+        if (keys.size() > capacity) {
+            LeafNode newNode = split(capacity);
+            long newPageNum = newNode.getPage().getPageNum();
+            returnVal = Optional.of(new Pair<>(newNode.getLeftMostKey(), newPageNum));
+        }
+        sync();
+        return returnVal;
     }
 
     // See BPlusNode.remove.
@@ -274,16 +290,15 @@ class LeafNode extends BPlusNode {
         rids.add(rid);
     }
 
-    public LeafNode split() {
-        int order = metadata.getOrder();
+    public LeafNode split(int capacity) {
         List<DataBox> keysToBeMigrated = new ArrayList<>();
         List<RecordId> ridsToBeMigrated = new ArrayList<>();
         Optional<Long> oldRightSibling = this.rightSibling;
 
         int len = this.keys.size();
-        for (int i = order; i < len; i++) {
-            DataBox currKey = this.keys.remove(order);
-            RecordId currRid = this.rids.remove(order);
+        for (int i = capacity; i < len; i++) {
+            DataBox currKey = this.keys.remove(capacity);
+            RecordId currRid = this.rids.remove(capacity);
             keysToBeMigrated.add(currKey);
             ridsToBeMigrated.add(currRid);
         }
